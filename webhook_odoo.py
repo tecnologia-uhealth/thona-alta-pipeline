@@ -57,8 +57,20 @@ def recibir_alta():
         contratante = payload.get("contratante", "U HEALTH INSURTECH")
         no_poliza = payload.get("no_poliza", "68873-00")
         rfc_contratante = payload.get("rfc_contratante", "UHI240702UR5")
+        tipo_movimiento = payload.get("tipo_movimiento", "alta")  # "alta" o "baja"
 
-        base = f"{TRABAJO_DIR}/orden_{orden_id}"
+        if tipo_movimiento == "baja":
+            tipo_modificacion_thona = "Bajas de Asegurados"
+            tipo_solicitud = "ENDOSO_D"
+            tipo_movimiento_texto = "BAJA DE ASEGURADO"
+            descripcion_forma = "DAR DE BAJA A ASEGURADOS"
+        else:
+            tipo_modificacion_thona = "Altas de Asegurados"
+            tipo_solicitud = "ENDOSO_A"
+            tipo_movimiento_texto = "ALTA DE ASEGURADO"
+            descripcion_forma = "DAR DE ALTA A ASEGURADOS"
+
+        base = f"{TRABAJO_DIR}/orden_{orden_id}_{tipo_movimiento}"
 
         # 1. Generar Layout de Asegurados
         layout_path = generar_layout_asegurados([asegurado], salida=f"{base}_layout.xlsx")
@@ -69,9 +81,9 @@ def recibir_alta():
             "ramo": "ACCIDENTES PERSONALES",
             "contratante": contratante,
             "tipo_poliza": "GRUPO o COLECTIVO",
-            "tipo_solicitud": "ENDOSO_A",
-            "tipo_movimiento": "ALTA DE ASEGURADO",
-            "observaciones": f"Alta automática — orden Odoo #{orden_id}",
+            "tipo_solicitud": tipo_solicitud,
+            "tipo_movimiento": tipo_movimiento_texto,
+            "observaciones": f"{tipo_movimiento_texto} automática — orden Odoo #{orden_id}",
         }
         xlsx_path, pdf_path = generar_solicitud_movimiento(datos_solicitud, salida_base=f"{base}_solicitud")
 
@@ -80,17 +92,17 @@ def recibir_alta():
         #    los 2 archivos ya listos para subir manualmente.
         folio = emitir_movimiento_thona(
             no_poliza=no_poliza,
-            tipo_modificacion="Altas de Asegurados",
+            tipo_modificacion=tipo_modificacion_thona,
             conteo_polizas=1,
-            descripcion="DAR DE ALTA A ASEGURADOS",
+            descripcion=descripcion_forma,
             nombre_contratante=contratante,
             rfc_contratante=rfc_contratante,
-            comentario_bitacora=f"Alta automática vía Odoo — orden #{orden_id}",
+            comentario_bitacora=f"{tipo_movimiento_texto} automática vía Odoo — orden #{orden_id}",
             layout_asegurados_path=layout_path,
             solicitud_path=pdf_path,
         )
 
-        log.info(f"Orden {orden_id}: alta emitida en Thona, folio {folio}")
+        log.info(f"Orden {orden_id}: {tipo_movimiento} emitida en Thona, folio {folio}")
 
         # 4. TODO: escribir el folio de vuelta en Odoo (XML-RPC/JSON-RPC)
         # actualizar_folio_en_odoo(orden_id, folio)
