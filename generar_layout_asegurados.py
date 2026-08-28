@@ -44,6 +44,17 @@ def generar_layout_asegurados(asegurados: list[dict], salida: str, template_path
     wb = load_workbook(template_path)
     ws = wb.active
 
+    # ⚠️ FIX CRÍTICO: la plantilla base trae filas de ejemplo con personas
+    # reales cargadas (José de Jesús Salgado, Alma Delia Antillón, etc.).
+    # Sin este borrado, cada alta real se mandaba con esas 10+ personas de
+    # más pegadas debajo del asegurado nuevo. Se limpia todo el rango de
+    # datos antes de escribir, para que el Excel final solo contenga a
+    # quien realmente se está dando de alta en esta solicitud.
+    max_fila_con_datos = ws.max_row
+    for fila in range(FIRST_DATA_ROW, max_fila_con_datos + 1):
+        for columna in range(1, 8):  # A-G: Subgrupo..Sueldo Mensual
+            ws.cell(row=fila, column=columna).value = None
+
     row = FIRST_DATA_ROW
     for a in asegurados:
         ws.cell(row=row, column=1, value=a.get("subgrupo", 1))
