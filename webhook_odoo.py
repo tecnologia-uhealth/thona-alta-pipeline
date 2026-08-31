@@ -53,7 +53,7 @@ def recibir_alta():
 
     try:
         orden_id = payload["order_id"]          # id de sale.order en Odoo, para trazabilidad
-        asegurado = payload["asegurado"]         # dict con nombres, apellidos, fecha_nacimiento, genero, subgrupo
+        asegurados = payload["asegurados"]       # LISTA de dicts (uno o varios asegurados en el mismo trámite)
         contratante = payload.get("contratante", "U HEALTH INSURTECH")
         no_poliza = payload.get("no_poliza", "68873-00")
         rfc_contratante = payload.get("rfc_contratante", "UHI240702UR5")
@@ -72,8 +72,9 @@ def recibir_alta():
 
         base = f"{TRABAJO_DIR}/orden_{orden_id}_{tipo_movimiento}"
 
-        # 1. Generar Layout de Asegurados
-        layout_path = generar_layout_asegurados([asegurado], salida=f"{base}_layout.xlsx")
+        # 1. Generar Layout de Asegurados — TODOS los asegurados del grupo
+        #    van en el mismo Excel (una fila por persona), no un Excel por persona.
+        layout_path = generar_layout_asegurados(asegurados, salida=f"{base}_layout.xlsx")
 
         # 2. Generar Solicitud de Movimiento (xlsx + pdf)
         datos_solicitud = {
@@ -83,7 +84,7 @@ def recibir_alta():
             "tipo_poliza": "GRUPO o COLECTIVO",
             "tipo_solicitud": tipo_solicitud,
             "tipo_movimiento": tipo_movimiento_texto,
-            "observaciones": f"{tipo_movimiento_texto} automática — orden Odoo #{orden_id}",
+            "observaciones": f"{tipo_movimiento_texto} automática — orden Odoo #{orden_id} ({len(asegurados)} asegurado(s))",
         }
         xlsx_path, pdf_path = generar_solicitud_movimiento(datos_solicitud, salida_base=f"{base}_solicitud")
 
@@ -93,16 +94,16 @@ def recibir_alta():
         folio = emitir_movimiento_thona(
             no_poliza=no_poliza,
             tipo_modificacion=tipo_modificacion_thona,
-            conteo_polizas=1,
+            conteo_polizas=len(asegurados),  # "Conteo de Pólizas/subgrupos" en el portal — refleja cuántas personas van en este trámite
             descripcion=descripcion_forma,
             nombre_contratante=contratante,
             rfc_contratante=rfc_contratante,
-            comentario_bitacora=f"{tipo_movimiento_texto} automática vía Odoo — orden #{orden_id}",
+            comentario_bitacora=f"{tipo_movimiento_texto} automática vía Odoo — orden #{orden_id} ({len(asegurados)} asegurado(s))",
             layout_asegurados_path=layout_path,
             solicitud_path=pdf_path,
         )
 
-        log.info(f"Orden {orden_id}: {tipo_movimiento} emitida en Thona, folio {folio}")
+        log.info(f"Orden {orden_id}: {tipo_movimiento} emitida en Thona ({len(asegurados)} asegurado(s)), folio {folio}")
 
         # 4. TODO: escribir el folio de vuelta en Odoo (XML-RPC/JSON-RPC)
         # actualizar_folio_en_odoo(orden_id, folio)
